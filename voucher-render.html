@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>سند — Voucher</title>
+<link rel="stylesheet" href="assets/fonts/cairo.css">
+<script src="assets/company.js"></script>
+<script src="assets/vendor/qrcode.min.js"></script>
+<style>
+  :root{--orange:#f5a623;--ink:#1a1a1a;--muted:#888;--soft:#999;--border:#ddd;--surface:#f7f7f7;--green:#16a34a;--red:#dc2626}
+  *{box-sizing:border-box;margin:0;padding:0}
+  /* تعويض ميزان خط Cairo لمنع قصّ الحروف بصرياً */
+  .voucher *{line-height:1.5}
+  .voucher .v-company>div,.voucher .v-title>div,.voucher .v-field span,.voucher .v-amount-box span,.voucher .v-sig strong,.voucher .v-stamp span{padding-bottom:3px}
+  .voucher .v-title .ar{padding-bottom:6px}
+  .voucher .v-company-ar{padding-bottom:5px}
+  .voucher .v-stamp .st-ar{padding-bottom:4px}
+  .voucher .scan-stamp .scan-ar{padding-bottom:24px}
+  .voucher .scan-stamp .scan-en{padding-bottom:6px}
+  html,body{width:100%;height:100%}
+  body{font-family:'Cairo',sans-serif;background:#eceef0;color:var(--ink);direction:rtl;padding:12px}
+  .back{display:inline-block;background:#fff;border:1px solid #ddd;color:var(--ink);padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;transition:.15s}
+  .back:hover{background:#eef2ff;color:#f5a623;border-color:#c7d2fe}
+  .no-print{margin-bottom:12px}
+  @media print{.no-print{display:none!important}}
+  .stage{width:100%;overflow:auto}
+
+  /* نفس تصميم السند الأصلي تماماً */
+  .voucher{
+    height:100mm;width:100%;min-width:700px;border:1px solid #333;position:relative;padding:3mm 4mm;
+    display:flex;flex-direction:column;min-height:0;background:#fff;overflow:hidden;
+    box-shadow:0 2px 14px rgba(0,0,0,.12);margin:0 auto
+  }
+  .voucher::before{content:'';position:absolute;top:0;right:0;width:50px;height:50px;background:var(--orange);clip-path:polygon(100% 0,0 0,100% 100%);z-index:0}
+  .voucher>*{position:relative;z-index:1;flex-shrink:0}
+
+  .v-top{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;gap:8px;margin-bottom:1mm}
+  .v-company{text-align:right}
+  .v-company-ar{font-size:20px;font-weight:800;color:var(--ink);line-height:1.2;letter-spacing:-.3px}
+  .v-company-sub{font-size:12px;font-weight:600;color:var(--muted);line-height:1.3;margin-top:1px}
+  .v-company-en{font-size:8px;color:var(--soft);font-weight:700;letter-spacing:.8px;margin-top:2px}
+  .v-company-phone{font-size:9px;color:var(--muted);font-weight:700;margin-top:3px}
+  .v-title{text-align:center}
+  .v-title .ar{font-size:26px;font-weight:900;line-height:1.2;white-space:nowrap;letter-spacing:-.3px}
+  .v-title .en{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-align:center;margin-top:3px}
+  .v-title.receipt .ar{color:var(--green)}
+  .v-title.payment .ar{color:var(--red)}
+  .v-qr{width:100px;justify-self:end;text-align:center;background:#fff;border:2.5px solid #000;border-radius:8px;padding:5px;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+  .v-qr svg{display:block !important;width:88px !important;height:88px !important}
+  .v-qr #qrcode{width:88px;height:88px;margin:0 auto;background:#fff}
+  .v-qr .qr-cap{font-size:8px;color:#000;font-weight:800;margin-top:3px}
+
+  .v-grid{display:grid;grid-template-columns:1fr 1fr;gap:2mm 6mm;flex:1;min-height:0;font-size:11px}
+  .v-col{display:flex;flex-direction:column;gap:2mm;justify-content:space-between}
+  .v-field{border-bottom:1px dotted #ccc;padding-bottom:2px}
+  .v-field .k{font-size:9px;color:var(--muted);font-weight:700;display:inline;margin-left:6px}
+  .v-field .v{font-size:12px;font-weight:800;color:var(--ink)}
+  .v-amount-box{border:2px solid var(--ink);border-radius:4px;padding:3mm 4mm;display:flex;justify-content:space-between;align-items:center}
+  .v-amount-box .k{font-size:11px;font-weight:700;color:var(--muted)}
+  .v-amount-box .v{font-size:22px;font-weight:900;direction:ltr}
+  .v-words{font-size:11px;font-weight:700;padding:2mm;background:#fffdf8;border-right:3px solid var(--orange)}
+
+  .v-bottom{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-top:auto;padding-top:2mm}
+  .v-sig{text-align:center;font-size:9px;color:var(--muted);min-width:110px}
+  .v-sig .ln{border-top:1px solid #000;padding-top:4px;min-height:22px;margin-top:5px}
+  .v-sig strong{color:var(--ink)}
+  .v-copy{font-size:9px;color:var(--muted);border:1px solid var(--border);border-radius:12px;padding:2px 10px}
+
+  .v-stamp{position:absolute;right:3mm;bottom:2mm;transform:none;z-index:2;min-width:120px;padding:2px 8px;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:3px double;text-align:center;line-height:1.15;opacity:.95;background:rgba(255,255,255,.92)}
+  .stamp-green{border-color:var(--green);color:var(--green)}
+  .stamp-red{border-color:#dc2626;color:#dc2626}
+  .v-stamp .st-ar{display:block;font-size:12px;font-weight:900;line-height:1.1;letter-spacing:.5px}
+  .v-stamp .st-en{display:block;font-size:7px;font-weight:800;letter-spacing:.8px;margin-top:1px}
+
+  /* ختم "صورة طبق الأصل" أحمر للنسخة المسوحة */
+  /* علامة مائية كبيرة تمتد على كامل الوصل من أعلى اليمين إلى أسفل اليسار */
+  .scan-stamp{
+    position:absolute;top:50%;left:50%;z-index:3;
+    transform:translate(-50%,-50%) rotate(-32deg);
+    white-space:nowrap;text-align:center;pointer-events:none;
+    border:none;background:transparent;color:#dc2626;opacity:.20
+  }
+  .scan-stamp .scan-ar{display:block;font-size:54px;font-weight:900;letter-spacing:3px;line-height:1.1}
+  .scan-stamp .scan-en{display:block;font-size:20px;font-weight:700;letter-spacing:9px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="no-print"><a class="back" href="desktop.html">← رجوع للقائمة</a></div>
+<div class="stage"><div class="voucher" id="voucher"></div></div>
+<script>
+/* دوال تحويل الأرقام لكلمات — مطابقة تماماً للتصميم الأصلي */
+const ones=['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة','عشرة','أحد عشر','اثنا عشر','ثلاثة عشر','أربعة عشر','خمسة عشر','ستة عشر','سبعة عشر','ثمانية عشر','تسعة عشر'];
+const tens=['','','عشرون','ثلاثون','أربعون','خمسون','ستون','سبعون','ثمانون','تسعون'];
+const hundreds=['','مئة','مئتان','ثلاثمئة','أربعمئة','خمسمئة','ستمئة','سبعمئة','ثمانمئة','تسعمئة'];
+function c1000(n){if(!n)return'';if(n<20)return ones[n];if(n<100){const t=Math.floor(n/10),o=n%10;return o?ones[o]+' و'+tens[t]:tens[t]}const h=Math.floor(n/100),r=n%100;return r?hundreds[h]+' و'+c1000(r):hundreds[h]}
+function numWords(num){num=Math.floor(Math.abs(num));if(!num)return'صفر';const parts=[];let i=0;while(num){const ch=num%1000;num=Math.floor(num/1000);if(ch){let w=c1000(ch);if(i===1){w=ch===1?'ألف':ch===2?'ألفان':ch<=10?w+' آلاف':w+' ألف'}else if(i===2){w=ch===1?'مليون':ch===2?'مليونان':ch<=10?w+' ملايين':w+' مليون'}else if(i===3){w=ch===1?'مليار':ch===2?'ملياران':w+' مليار'}parts.unshift(w)}i++}return parts.join(' و')}
+function dinarWord(d){if(d===0)return'';if(d===1)return'دينار واحد';if(d===2)return'ديناران';if(d<=10)return numWords(d)+' دنانير';return numWords(d)+' ديناراً'}
+function filsWord(f){if(f===0)return'';if(f===1)return'فلس واحد';if(f===2)return'فلسان';if(f<=10)return numWords(f)+' فلوس';return numWords(f)+' فلس'}
+function priceWords(p){let n=parseFloat(p);if(isNaN(n)||n<0)return'';let d=Math.floor(n),f=Math.round((n-d)*1000);if(f>=1000){d++;f=0}if(d===0&&f===0)return'صفر دينار كويتي فقط لا غير';const din=dinarWord(d),fil=filsWord(f);let w=(din&&fil)?din+' و'+fil:(din||fil);return w+' كويتي فقط لا غير'}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+function decodeData(raw){
+  try{
+    let s=raw.replace(/-/g,'+').replace(/_/g,'/');
+    while(s.length%4) s+='=';
+    const str=decodeURIComponent(escape(atob(s)));
+    if(str.indexOf('\u0001')>=0){
+      const v=str.split('\u0001');
+      const oldStyle=v[0]==='r'||v[0]==='p';
+      const co=oldStyle?'default':v[0];
+      const p=oldStyle?v[0]:v[1],no=oldStyle?v[1]:v[2],date=oldStyle?v[2]:v[3],party=oldStyle?v[3]:v[4],
+        desc=oldStyle?v[4]:v[5],method=oldStyle?v[5]:v[6],resp=oldStyle?v[6]:v[7],
+        amount=oldStyle?v[7]:v[8],cp=oldStyle?v[8]:v[9];
+      return {type:p==='r'?'receipt':'payment',company:co,no,date,party,desc,method,resp,amount,currency:'دينار كويتي',copyLabel:cp==='c'?'نسخة الشركة':'نسخة العميل',copyEn:cp==='c'?'Company Copy':'Client Copy'};
+    }
+    return JSON.parse(str);
+  }catch(e){ return null; }
+}
+const hash=(location.hash||'').replace(/^#\/?/,'');
+const URLCOMPANY=new URLSearchParams(location.search).get('company')||'default';
+const legacy=decodeData(new URLSearchParams(hash).get('d')||'');
+const v=document.getElementById('voucher');
+function render(d){
+if(d && d.company && d.company!==URLCOMPANY && URLCOMPANY!=='default'){
+  v.innerHTML='<p style="text-align:center;padding:40px;color:#dc2626;font-size:20px;font-weight:800">هذا السند لشركة أخرى<br><span style="font-size:13px;color:#888">barcode belongs to a different company — access denied</span></p>';
+  d=null;
+}
+if(!d){ v.innerHTML='<p style="text-align:center;padding:40px">لا توجد بيانات / No data</p>'; }
+else{
+  const isRec=d.type==='receipt';
+  const ar=isRec?'سند قبض':'سند صرف';
+  const en=isRec?'RECEIPT VOUCHER':'PAYMENT VOUCHER';
+  const partyLbl=isRec?'استلمنا من / Received From':'دفعنا إلى / Paid To';
+  const cls=isRec?'receipt':'payment';
+  const company=d.displayCompany||DurraCompany.getFor(d.company||URLCOMPANY);
+  const parts=company.replace(/^شركة\s*/,'').split(/\s+(?=للتجارة|لل){1}/);
+  const main=parts[0]||company||'—';
+  const sub=parts.slice(1).join(' ');
+  const stampCls=isRec?'stamp-green':'stamp-red';
+  const stampAr=isRec?'تم الاستلام':'تم الدفع';
+  const stampEn=isRec?'RECEIVED':'PAID';
+  const words=priceWords(d.amount);
+  const amountVal=(parseFloat(d.amount)||0).toFixed(3);
+  v.innerHTML=`
+    <div class="v-top">
+      <div class="v-company">
+        <div class="v-company-ar">شركة ${esc(main)}</div>
+        ${sub?`<div class="v-company-sub">${esc(sub)}</div>`:''}
+        <div class="v-company-en"></div>
+        <div class="v-company-phone">هاتف: ${esc(d.phone||'—')} | سجل: ${esc(d.cr||'—')}</div>
+      </div>
+      <div class="v-title ${cls}"><div class="ar">${ar}</div><div class="en">${en}</div></div>
+      <div class="v-qr"><div id="qrcode"></div><div class="qr-cap">امسح للتحقق</div></div>
+    </div>
+    <div class="v-grid">
+      <div class="v-col">
+        <div class="v-field"><span class="k">رقم السند / No.</span><span class="v">${esc(d.no||'')}</span></div>
+        <div class="v-field"><span class="k">${esc(partyLbl)}</span><span class="v">${esc(d.party||'—')}</span></div>
+        <div class="v-field"><span class="k">الطريقة / Method</span><span class="v">${esc(d.method||'')}</span></div>
+        <div class="v-field"><span class="k">المسؤول / Resp.</span><span class="v">${esc(d.resp||'—')}</span></div>
+      </div>
+      <div class="v-col">
+        <div class="v-field"><span class="k">التاريخ / Date</span><span class="v">${esc(d.date||'')}</span></div>
+        <div class="v-field"><span class="k">البيان / Description</span><span class="v">${esc(d.desc||'—')}</span></div>
+        <div class="v-amount-box"><span class="k">المبلغ / Amount</span><span class="v">${esc(amountVal)} ${esc(d.currency||'دينار كويتي')}</span></div>
+        <div class="v-words">كتابةً / In words: ${words}</div>
+      </div>
+    </div>
+    <div class="v-bottom">
+      <div style="flex:1"></div>
+      <div class="v-sig"><strong>المستلم / Received by</strong><div class="ln"></div></div>
+      <div class="v-sig"><strong>المحاسب / Accountant</strong><div class="ln"></div></div>
+      <div class="v-copy">${esc(d.copyLabel||'')} / ${esc(d.copyEn||'')}</div>
+    </div>
+    <div class="v-stamp ${stampCls}"><span class="st-ar">${stampAr}</span><span class="st-en">${stampEn}</span></div>
+    <div class="scan-stamp"><span class="scan-ar">صورة طبق الأصل</span><span class="scan-en">COPY / SCAN</span></div>`;
+  // QR في صفحة المسح — SVG نقي مثل التصميم الأصلي تماماً
+  try{
+    const qre=document.getElementById('qrcode');
+    const qr=qrcode(0,'M');qr.addData(location.href);qr.make();
+    qre.innerHTML=qr.createSvgTag({cellSize:4,margin:2});
+    const svg=qre.querySelector('svg');if(svg){svg.setAttribute('width','88');svg.setAttribute('height','88');}
+  }catch(e){console.error('QR render failed:',e);}
+}
+}
+/* المسح يحمل معرّفاً فقط — تُجلب البيانات من السجل المحلي عند الطلب */
+const qp=new URLSearchParams(location.search);
+const idParam=qp.get('id')||'';
+const copyParam=qp.get('copy');
+const DOCURL=qp.get('doc')||'';
+if(DOCURL){
+  fetch(DOCURL)
+    .then(r=>r.ok?r.json():null)
+    .then(rec=>render(rec?{
+      type:rec.type==='voucher_receipt'?'receipt':'payment',
+      company:rec.company||URLCOMPANY,
+      displayCompany:rec.seller||DurraCompany.getFor(rec.company||URLCOMPANY),
+      no:rec.no,date:rec.date,party:rec.party,desc:rec.desc,method:rec.method,resp:rec.resp,
+      phone:rec.phone,cr:rec.cr,amount:rec.amount,currency:'دينار كويتي',
+      copyLabel:copyParam==='c'?'نسخة الشركة':'نسخة العميل',
+      copyEn:copyParam==='c'?'Company Copy':'Client Copy'
+    }:null))
+    .catch(()=>render(null));
+}else render(legacy);
+</script>
+</body>
+</html>
